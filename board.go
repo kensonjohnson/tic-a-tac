@@ -24,6 +24,8 @@ type Board struct {
 	state         []Mark
 	selectedIndex int
 	showBoard     bool
+	computerScore int
+	playerScore   int
 }
 
 func NewBoard(x, y int) Board {
@@ -33,6 +35,8 @@ func NewBoard(x, y int) Board {
 		state:         make([]Mark, 25),
 		selectedIndex: 0,
 		showBoard:     false,
+		computerScore: 0,
+		playerScore:   0,
 	}
 
 	for index := range 25 {
@@ -45,6 +49,9 @@ func NewBoard(x, y int) Board {
 }
 
 func (b *Board) Render(screen tcell.Screen) {
+	if !b.showBoard {
+		return
+	}
 	drawString(screen, b.x, b.y, "┌───┬───┬───┬───┬───┐")
 	drawString(screen, b.x, b.y+1, "│   │   │   │   │   │")
 	drawString(screen, b.x, b.y+2, "├───┼───┼───┼───┼───┤")
@@ -84,7 +91,7 @@ func (b *Board) Render(screen tcell.Screen) {
 			}
 		case Blocked:
 			if index == b.selectedIndex {
-				drawStyledString(screen, xPos, yPos, tcell.StyleDefault.Foreground(tcell.ColorDarkRed), blocked)
+				drawStyledString(screen, xPos, yPos, darkRedForeground, blocked)
 			} else {
 				drawString(screen, xPos, yPos, blocked)
 			}
@@ -138,10 +145,74 @@ func (b *Board) GetAvailableIndexes() []int {
 	return available
 }
 
-func (b *Board) ShowBoard() {
+func (b *Board) SelectedIndexValid() bool {
+	return b.state[b.selectedIndex] == Empty
+}
+
+func (b *Board) Show() {
 	b.showBoard = true
 }
 
-func (b *Board) HideBoard() {
+func (b *Board) Hide() {
 	b.showBoard = false
+}
+
+func (b *Board) ProcessMoves(playerMove, computerMove int) {
+	if playerMove == computerMove {
+		b.state[playerMove] = Blocked
+		return
+	}
+
+	b.state[playerMove] = X
+	b.state[computerMove] = O
+}
+
+func (b *Board) CalculateScores() {
+	playerScore := 0
+	computerScore := 0
+	for i := 0; i < len(b.state); i++ {
+		// Get current mark
+		mark := b.state[i]
+
+		// We only need to process X's and O's
+		if mark != X && mark != O {
+			continue
+		}
+
+		// Look right for 3 in a row
+		x := i % 5
+
+		// Make sure there is enough room for 3
+		if x+2 < 5 {
+			// Check if next two match current mark
+			if b.state[i+1] == mark && b.state[i+2] == mark {
+				// Give the point to the proper player
+				if mark == X {
+					playerScore++
+				} else {
+					computerScore++
+				}
+			}
+		}
+
+		// Look down for 3 in a row
+		y := i / 5
+
+		// Make sure there is enough room for 3
+		if y+2 < 5 {
+			// Check if next two match current mark
+			if b.state[i+5] == mark && b.state[i+10] == mark {
+				// Give the point to the proper player
+				if mark == X {
+					playerScore++
+				} else {
+					computerScore++
+				}
+			}
+		}
+
+	}
+
+	b.playerScore = playerScore
+	b.computerScore = computerScore
 }
