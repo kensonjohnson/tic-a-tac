@@ -2,6 +2,15 @@ package main
 
 import "github.com/gdamore/tcell/v2"
 
+// Preset styles
+var defStyle tcell.Style = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
+var blueForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorBlue)
+var darkBlueForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorDarkBlue)
+var yellowForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorYellow)
+var greenForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorGreen)
+var redForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorRed)
+var darkRedForeground tcell.Style = tcell.StyleDefault.Foreground(tcell.ColorDarkRed)
+
 // Draws text on single line
 func drawString(screen tcell.Screen, x, y int, msg string) {
 	for i, char := range []rune(msg) {
@@ -23,7 +32,7 @@ func drawText(screen tcell.Screen, x1, y1, x2, y2 int, style tcell.Style, text s
 	for _, r := range []rune(text) {
 		screen.SetContent(col, row, r, nil, style)
 		col++
-		if col >= x2 {
+		if col >= x2 || r == '\n' {
 			row++
 			col = x1
 		}
