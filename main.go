@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/gdamore/tcell/v2"
@@ -10,7 +11,6 @@ type game struct {
 	screen     tcell.Screen
 	running    bool
 	welcome    Welcome
-	gameOver   GameOverScreen
 	board      Board
 	scoreboard Scoreboard
 	computer   Computer
@@ -60,7 +60,6 @@ func main() {
 		screen:     screen,
 		running:    true,
 		welcome:    NewWelcome(),
-		gameOver:   NewGameOverScreen(),
 		board:      NewBoard(1, 1),
 		scoreboard: NewScoreboard(40, 0),
 		computer:   NewComputer(),
@@ -146,7 +145,7 @@ func (g *game) update() {
 	case RoundOver:
 		// Display exit screen
 		g.board.Hide()
-		g.gameOver.Show()
+		g.gameState = GameOver
 
 	case GameOver:
 		event := g.screen.PollEvent()
@@ -162,5 +161,24 @@ func (g *game) render() {
 	g.welcome.Render(g.screen)
 	g.board.Render(g.screen)
 	g.scoreboard.Render(g.screen)
+	g.drawGameOver()
 	g.screen.Show()
+}
+
+func (g *game) drawGameOver() {
+	if g.gameState != GameOver {
+		return
+	}
+	drawString(g.screen, 2, 2, "Game Over!")
+
+	drawString(g.screen, 2, 4, fmt.Sprintf("Player score: %v", g.board.playerScore))
+	drawString(g.screen, 2, 5, fmt.Sprintf("Computer score: %v", g.board.computerScore))
+
+	if g.board.playerScore > g.board.computerScore {
+		drawString(g.screen, 2, 7, "Player Wins!")
+	} else if g.board.playerScore < g.board.computerScore {
+		drawString(g.screen, 2, 7, "Player Wins!")
+	} else {
+		drawString(g.screen, 2, 7, "It's a tie!")
+	}
 }
