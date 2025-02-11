@@ -7,21 +7,28 @@ import (
 )
 
 type game struct {
-	screen    tcell.Screen
-	running   bool
-	board     Board
-	gameState gameState
+	screen     tcell.Screen
+	running    bool
+	welcome    Welcome
+	gameOver   GameOverScreen
+	board      Board
+	scoreboard Scoreboard
+	computer   Computer
+	player     Player
+	gameState  GameState
 }
 
-type gameState int
+type GameState int
 
 const (
-	WelcomeScreen gameState = iota
+	WelcomeScreen GameState = iota
 	ShowBoard
+	ComputerInput
 	PlayerInput
+	TakeTurn
+	RoundOver
+	GameOver
 )
-
-var defStyle tcell.Style = tcell.StyleDefault.Background(tcell.ColorReset).Foreground(tcell.ColorReset)
 
 func main() {
 
@@ -50,10 +57,15 @@ func main() {
 
 	// Game initialization
 	g := game{
-		screen:    screen,
-		running:   true,
-		board:     NewBoard(1, 1),
-		gameState: WelcomeScreen,
+		screen:     screen,
+		running:    true,
+		welcome:    NewWelcome(),
+		gameOver:   NewGameOverScreen(),
+		board:      NewBoard(1, 1),
+		scoreboard: NewScoreboard(40, 0),
+		computer:   NewComputer(),
+		player:     NewPlayer(),
+		gameState:  WelcomeScreen,
 	}
 
 	// Event loop
@@ -64,43 +76,91 @@ func main() {
 }
 
 func (g *game) update() {
-	event := g.screen.PollEvent()
-	ev, isKeyEvent := event.(*tcell.EventKey)
-	if isKeyEvent && (ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC) {
-		g.running = false
-		return
-	}
-
 	switch g.gameState {
 	case WelcomeScreen:
-		if isKeyEvent && ev.Key() == tcell.KeyEnter {
+		event := g.screen.PollEvent()
+		ev, isKeyEvent := event.(*tcell.EventKey)
+
+		if !isKeyEvent {
+			return
+		}
+
+		switch {
+		case ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC:
+			g.running = false
+			return
+
+		case ev.Key() == tcell.KeyEnter:
 			g.gameState = ShowBoard
 		}
 
 	case ShowBoard:
-		g.board.ShowBoard()
+		g.welcome.Hide()
+		g.board.Show()
+		g.scoreboard.Show()
+		g.gameState = ComputerInput
+
+	case ComputerInput:
+		g.computer.makeNextMove(g.board)
+		g.gameState = PlayerInput
 
 	case PlayerInput:
-		if isKeyEvent {
-			switch {
-			case ev.Rune() == 'w' || ev.Key() == tcell.KeyUp:
-				g.board.MoveIndexUp()
+		event := g.screen.PollEvent()
+		ev, isKeyEvent := event.(*tcell.EventKey)
 
-			case ev.Rune() == 's' || ev.Key() == tcell.KeyDown:
-				g.board.MoveIndexDown()
+		if !isKeyEvent {
+			return
+		}
 
-			case ev.Rune() == 'a' || ev.Key() == tcell.KeyLeft:
-				g.board.MoveIndexLeft()
+		switch {
+		case ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC:
+			g.running = false
+		case ev.Rune() == 'w' || ev.Key() == tcell.KeyUp:
+			g.board.MoveIndexUp()
 
-			case ev.Rune() == 'd' || ev.Key() == tcell.KeyRight:
-				g.board.MoveIndexRight()
+		case ev.Rune() == 's' || ev.Key() == tcell.KeyDown:
+			g.board.MoveIndexDown()
+
+		case ev.Rune() == 'a' || ev.Key() == tcell.KeyLeft:
+			g.board.MoveIndexLeft()
+
+		case ev.Rune() == 'd' || ev.Key() == tcell.KeyRight:
+			g.board.MoveIndexRight()
+
+		case ev.Key() == tcell.KeyEnter:
+			if g.player.attemptMove(g.board) {
+				g.gameState = TakeTurn
 			}
+
+		}
+
+	case TakeTurn:
+		g.board.ProcessMoves(g.player.nextMove, g.computer.nextMove)
+		g.board.CalculateScores()
+		g.scoreboard.UpdateScores(g.board.playerScore, g.board.computerScore)
+		g.gameState = ComputerInput
+		if len(g.board.GetAvailableIndexes()) == 0 {
+			g.gameState = RoundOver
+		}
+
+	case RoundOver:
+		// Display exit screen
+		g.board.Hide()
+		g.gameOver.Show()
+
+	case GameOver:
+		event := g.screen.PollEvent()
+		ev, isKeyEvent := event.(*tcell.EventKey)
+		if isKeyEvent && (ev.Key() == tcell.KeyEscape || ev.Key() == tcell.KeyCtrlC) {
+			g.running = false
 		}
 	}
 }
 
 func (g *game) render() {
 	g.screen.Clear()
+	g.welcome.Render(g.screen)
 	g.board.Render(g.screen)
+	g.scoreboard.Render(g.screen)
 	g.screen.Show()
 }
